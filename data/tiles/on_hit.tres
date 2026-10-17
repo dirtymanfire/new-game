@@ -7,3 +7,4 @@ script = ExtResource("1_tile")
 id = &"on_hit"
 display_name = "적중 시"
 kind = 3
+description = "앞 행동이 적에게 맞을 때 뒤 타일을 발동합니다."

@@ -4,10 +4,12 @@ extends RefCounted
 ##
 ## 해석 규칙 (확정):
 ## - 속성은 행동 바로 앞에 붙습니다. 행동 앞에 연속된 속성은 모두 적용됩니다.
-## - 변형은 행동 바로 뒤에 붙습니다. 행동 뒤에 연속된 변형은 모두 적용됩니다.
+## - 변형은 행동 앞 또는 뒤에 붙습니다. 연속된 변형은 모두 적용됩니다.
+##   단, allow_after_action이 꺼진 변형(분열)은 행동 뒤에 오면 경고합니다.
 ## - 조건은 바로 앞 행동에만 적용되고, 뒤의 타일 trigger_reach개를 발동합니다.
 ##   · 뒤가 행동이면: 그 행동은 조건 전용이 되어 순차 실행에서 빠집니다. 쿨다운 없이 발동합니다.
 ##   · 뒤가 속성이면: 적중/처치한 적에게 그 상태이상을 겁니다.
+##   · 뒤가 usable_after_condition이 켜진 변형(분열)이면: 맞은 적 위치에서 그 효과가 발동합니다.
 ## - 조건으로 발동된 행동은 max_chain_depth를 넘어 다시 조건을 발동하지 않습니다 (무한 연쇄 방지 A안).
 ## - 잘못된 배치는 허용하되 경고하고, 해당 타일은 효과 없이 무시합니다.
 ## - 빈 슬롯은 없는 것처럼 건너뜁니다.
@@ -48,6 +50,8 @@ class TriggerStep:
 	var actions: Array[ActionStep] = []
 	## 조건 발동 시 대상 적에게 걸 상태이상
 	var statuses: Array[BehaviorTile] = []
+	## 조건 발동 시 대상 적 위치에서 발동할 변형 (예: 맞은 후 분열)
+	var modifiers: Array[BehaviorTile] = []
 
 
 class CompiledRule:
@@ -74,7 +78,8 @@ static func compile(
 		if slots[i] != null:
 			tokens.append({ "index": i, "tile": slots[i] })
 
-	var pending_elements: Array[Dictionary] = []
+	## 다음 행동 앞에 붙을 속성/변형. {index, tile, reason(행동이 안 나오면 띄울 경고)}
+	var pending_prefix: Array[Dictionary] = []
 	## 다음 변형/조건이 붙을 행동. 다른 타일이 끼어들면 null이 됩니다.
 	var attach_target: ActionStep = null
 	## attach_target 뒤에 조건이 이미 나와서 변형이 더 붙을 수 없는 상태
@@ -88,31 +93,38 @@ static func compile(
 
 		match tile.kind:
 			BehaviorTile.Kind.ELEMENT:
-				pending_elements.append(tokens[t - 1])
+				pending_prefix.append({ "index": index, "tile": tile, "reason": "속성 뒤에 행동이 없습니다." })
 				attach_target = null
 
 			BehaviorTile.Kind.ACTION:
 				var step := ActionStep.new()
 				step.tile = tile
 				step.slot_index = index
-				for e in pending_elements:
-					step.elements.append(e.tile)
-				pending_elements.clear()
+				for p in pending_prefix:
+					if p.tile.kind == BehaviorTile.Kind.ELEMENT:
+						step.elements.append(p.tile)
+					else:
+						step.modifiers.append(p.tile)
+				pending_prefix.clear()
 				result.actions.append(step)
 				attach_target = step
 				modifiers_closed = false
 
 			BehaviorTile.Kind.MODIFIER:
-				_orphan_elements(result, pending_elements)
-				if attach_target == null:
-					result.add_warning(index, "변형 앞에 행동이 없습니다.")
-				elif modifiers_closed:
-					result.add_warning(index, "조건으로 발동되는 행동에는 뒤의 변형이 적용되지 않습니다.")
+				if attach_target and not modifiers_closed and pending_prefix.is_empty():
+					if tile.allow_after_action:
+						attach_target.modifiers.append(tile)
+					else:
+						result.add_warning(index, "%s은(는) 행동 앞에 놓아야 합니다." % tile.display_name)
 				else:
-					attach_target.modifiers.append(tile)
+					var reason := "변형 앞뒤에 행동이 없습니다."
+					if modifiers_closed and pending_prefix.is_empty():
+						reason = "조건으로 발동되는 행동에는 뒤의 변형이 적용되지 않습니다."
+					pending_prefix.append({ "index": index, "tile": tile, "reason": reason })
+					attach_target = null
 
 			BehaviorTile.Kind.CONDITION:
-				_orphan_elements(result, pending_elements)
+				_orphan_prefix(result, pending_prefix)
 				if attach_target == null:
 					result.add_warning(index, "조건 앞에 행동이 없습니다.")
 					continue
@@ -148,10 +160,12 @@ static func compile(
 						BehaviorTile.Kind.ELEMENT:
 							trigger.statuses.append(p_tile)
 						BehaviorTile.Kind.MODIFIER:
-							if last_payload_action:
+							if last_payload_action and p_tile.allow_after_action:
 								last_payload_action.modifiers.append(p_tile)
+							elif last_payload_action == null and p_tile.usable_after_condition:
+								trigger.modifiers.append(p_tile)
 							else:
-								result.add_warning(p_index, "조건 뒤에는 행동 또는 속성이 와야 합니다.")
+								result.add_warning(p_index, "%s은(는) 조건 뒤에 올 수 없습니다." % p_tile.display_name)
 						BehaviorTile.Kind.CONDITION:
 							result.add_warning(p_index, "조건 뒤에 조건이 올 수 없습니다.")
 
@@ -159,14 +173,13 @@ static func compile(
 				attach_target = last_payload_action
 				modifiers_closed = true
 
-	_orphan_elements(result, pending_elements)
+	_orphan_prefix(result, pending_prefix)
 	if result.actions.is_empty():
 		result.add_warning(-1, "행동 수칙에 순차 실행할 행동이 없습니다.")
 	return result
 
 
-static func _orphan_elements(result: CompiledRule, pending_elements: Array[Dictionary]) -> void:
-	for e in pending_elements:
-		result.add_warning(e.index, "속성 바로 뒤에 행동이 없습니다.")
-	pending_elements.clear()
-
+static func _orphan_prefix(result: CompiledRule, pending_prefix: Array[Dictionary]) -> void:
+	for p in pending_prefix:
+		result.add_warning(p.index, p.reason)
+	pending_prefix.clear()

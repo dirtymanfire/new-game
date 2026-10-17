@@ -7,3 +7,7 @@ script = ExtResource("1_tile")
 id = &"frost"
 display_name = "빙결"
 kind = 1
+description = "맞을 때마다 둔화가 쌓이고, 100%가 되면 잠시 얼어붙습니다."
+duration = 2.0
+potency = 0.25
+extra_duration = 1.5

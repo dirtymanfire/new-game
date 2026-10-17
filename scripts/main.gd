@@ -9,6 +9,9 @@ extends Node2D
 @onready var _runner: RuleRunner = $Player/RuleRunner
 @onready var _hud: CanvasLayer = $HUD
 @onready var _result: CanvasLayer = $ResultScreen
+@onready var _combat: CombatSystem = $Combat
+@onready var _spawner: Node = $EnemySpawner
+@onready var _enemies: Node2D = $Enemies
 
 
 func _ready() -> void:
@@ -21,7 +24,8 @@ func _ready() -> void:
 	_hud.set_wave(RunState.wave)
 	rule.changed.connect(_reload_rule)
 	_reload_rule()
-	_runner.action_performed.connect(_on_action_performed)
+	_combat.setup(_player, _runner)
+	_spawner.setup(_player, _enemies)
 	_runner.start()
 
 	_player.died.connect(_on_player_died)
@@ -31,11 +35,6 @@ func _ready() -> void:
 func _reload_rule() -> void:
 	_runner.load_rule(RunState.rule)
 	_hud.show_warnings(_runner.compiled.warnings)
-
-
-func _on_action_performed(step: RuleCompiler.ActionStep, _origin: Vector2) -> void:
-	# 공격 생성은 타일 수치 확정 후 구현합니다. 지금은 실행 순서만 확인할 수 있게 출력합니다.
-	print("[수칙] %d번 슬롯 실행: %s" % [step.slot_index + 1, step.describe()])
 
 
 func _on_player_died() -> void:

@@ -7,3 +7,6 @@ script = ExtResource("1_tile")
 id = &"fire"
 display_name = "화염"
 kind = 1
+description = "적을 불태워 지속 피해를 줍니다. 다시 걸면 지속 시간이 갱신됩니다."
+duration = 3.0
+potency = 5.0

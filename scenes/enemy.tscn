@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/entities/enemy.gd" id="1_enemy"]
+[ext_resource type="Script" path="res://scripts/visual/shape_visual.gd" id="2_visual"]
+
+[node name="Enemy" type="Node2D"]
+script = ExtResource("1_enemy")
+
+[node name="Visual" type="Node2D" parent="."]
+script = ExtResource("2_visual")
+size = Vector2(32, 32)
+color = Color(0.784, 0.278, 0.361, 1)
