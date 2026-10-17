@@ -20,7 +20,13 @@ layout_mode = 0
 offset_left = 32.0
 offset_top = 32.0
 offset_right = 432.0
-offset_bottom = 92.0
+offset_bottom = 140.0
+
+[node name="WaveLabel" type="Label" parent="Root/Health"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "웨이브"
 
 [node name="HealthLabel" type="Label" parent="Root/Health"]
 unique_name_in_owner = true
@@ -50,3 +56,22 @@ grow_vertical = 0
 alignment = 1
 theme_override_constants/separation = 10
 script = ExtResource("2_rule")
+
+[node name="WarningLabel" type="Label" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -370.0
+offset_top = -330.0
+offset_right = 370.0
+offset_bottom = -140.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 0.36, 0.36, 1)
+horizontal_alignment = 1
+vertical_alignment = 2
+autowrap_mode = 3

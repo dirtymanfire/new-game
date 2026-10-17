@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://scripts/visual/ground_grid.gd" id="2_grid"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="3_player"]
 [ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="4_hud"]
+[ext_resource type="PackedScene" path="res://scenes/result_screen.tscn" id="5_result"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -15,3 +16,5 @@ script = ExtResource("2_grid")
 [node name="Player" parent="." instance=ExtResource("3_player")]
 
 [node name="HUD" parent="." instance=ExtResource("4_hud")]
+
+[node name="ResultScreen" parent="." instance=ExtResource("5_result")]
