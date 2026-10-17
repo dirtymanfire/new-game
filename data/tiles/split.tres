@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="BehaviorTile" format=3]
+
+[ext_resource type="Script" path="res://scripts/tiles/behavior_tile.gd" id="1_tile"]
+
+[resource]
+script = ExtResource("1_tile")
+id = &"split"
+display_name = "분열"
+kind = 2

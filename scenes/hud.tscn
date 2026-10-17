@@ -1,0 +1,52 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
+[ext_resource type="Script" path="res://scripts/ui/rule_bar.gd" id="2_rule"]
+
+[node name="HUD" type="CanvasLayer"]
+script = ExtResource("1_hud")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Health" type="VBoxContainer" parent="Root"]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 32.0
+offset_right = 432.0
+offset_bottom = 92.0
+
+[node name="HealthLabel" type="Label" parent="Root/Health"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "체력"
+
+[node name="HealthBar" type="ProgressBar" parent="Root/Health"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(400, 24)
+layout_mode = 2
+show_percentage = false
+
+[node name="RuleBar" type="HBoxContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -370.0
+offset_top = -130.0
+offset_right = 370.0
+offset_bottom = -32.0
+grow_horizontal = 2
+grow_vertical = 0
+alignment = 1
+theme_override_constants/separation = 10
+script = ExtResource("2_rule")
