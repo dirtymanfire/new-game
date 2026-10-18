@@ -4,6 +4,9 @@ extends Node2D
 ## 화염·독·빙결 상태이상을 받습니다.
 
 signal died(enemy: Enemy)
+## 지속 피해(화염·독)로 죽었을 때. source는 마지막으로 지속 피해를 건 공격이고,
+## 조건으로 걸린 상태이상이면 null입니다.
+signal killed_by_status(enemy: Enemy, source: Attack)
 
 const BASE_COLOR := Color("c8475c")
 const STATUS_COLORS := {
@@ -32,6 +35,8 @@ var _slow := 0.0
 var _slow_time := 0.0
 var _frozen_time := 0.0
 var _flash_time := 0.0
+## 마지막으로 화염·독을 건 공격 (조건으로 걸렸으면 null)
+var _last_dot_source: Attack
 
 @onready var _visual: ShapeVisual = $Visual
 
@@ -67,8 +72,8 @@ func take_damage(amount: float) -> bool:
 	return false
 
 
-## 속성 상태이상을 겁니다.
-func apply_element(element: BehaviorTile) -> void:
+## 속성 상태이상을 겁니다. source는 그 상태이상을 건 공격이며, 조건으로 걸렸으면 null입니다.
+func apply_element(element: BehaviorTile, source: Attack = null) -> void:
 	if is_dead:
 		return
 	match element.id:
@@ -76,11 +81,13 @@ func apply_element(element: BehaviorTile) -> void:
 			# 다시 걸면 지속 시간만 갱신 (중첩 없음)
 			_burn_dps = element.potency
 			_burn_time = element.duration
+			_last_dot_source = source
 		&"poison":
 			_poison_dps_per_stack = element.potency
 			# 걸 때마다 1중첩씩 쌓이고, 지속 시간이 갱신됩니다.
 			_poison_stacks = mini(_poison_stacks + 1, element.count)
 			_poison_time = element.duration
+			_last_dot_source = source
 		&"frost":
 			if _frozen_time > 0.0:
 				return
@@ -109,9 +116,8 @@ func _tick_statuses(delta: float) -> void:
 			_slow = 0.0
 	if _frozen_time > 0.0:
 		_frozen_time -= delta
-	if dot > 0.0:
-		# 지속 피해로 인한 처치는 '처치 시' 조건을 발동하지 않습니다.
-		take_damage(dot * delta)
+	if dot > 0.0 and take_damage(dot * delta):
+		killed_by_status.emit(self, _last_dot_source)
 
 
 func _update_color(delta: float) -> void:

@@ -16,7 +16,7 @@ func _run() -> void:
 	_test_player_death()
 	_test_compiler()
 	_test_runner()
-	_test_combat()
+	await _test_combat()
 	_test_shop()
 	await _test_wave()
 	print("테스트 %s" % ("통과" if _failures == 0 else "실패 %d건" % _failures))
@@ -231,6 +231,31 @@ func _test_combat() -> void:
 		if c is Projectile:
 			fragments += 1
 	_check(fragments == _t("split").count, "적중 시 분열 파편 %d개" % fragments)
+	# 지속 피해 처치도 처치: 마지막으로 화염을 건 순차 행동의 '처치 시' 발동
+	rule = BehaviorRule.new()
+	rule.set_tile(0, _t("fire"))
+	rule.set_tile(1, _t("shoot"))
+	rule.set_tile(2, _t("on_kill"))
+	rule.set_tile(3, _t("explosion"))
+	runner.load_rule(rule)
+	triggered[0] = 0
+	var burning := _make_enemy(Vector2(0, -800))
+	burning.health = 1.0
+	var weak := Attack.from_step(runner.compiled.actions[0], 0)
+	weak.damage = 0.0
+	combat.hit(weak, burning)
+	await create_timer(0.5).timeout
+	_check(burning.is_dead and triggered[0] == 1, "화염으로 죽어도 처치 시 발동: %d" % triggered[0])
+
+	# 조건으로 걸린 화염(source 없음)으로 죽으면 발동하지 않음 (A안)
+	triggered[0] = 0
+	var burning2 := _make_enemy(Vector2(0, -1600))
+	burning2.health = 1.0
+	burning2.killed_by_status.connect(combat._on_enemy_killed_by_status)
+	burning2.apply_element(_t("fire"))
+	await create_timer(0.5).timeout
+	_check(burning2.is_dead and triggered[0] == 0, "조건으로 걸린 화염 처치는 발동 안 함")
+
 	for n in [a, b, fresh, player, combat]:
 		if is_instance_valid(n):
 			n.queue_free()

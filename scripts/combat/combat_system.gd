@@ -40,13 +40,22 @@ func find_nearest_enemy(from: Vector2, exclude_ids: Dictionary = {}) -> Enemy:
 func hit(attack: Attack, enemy: Enemy) -> void:
 	if enemy.is_dead:
 		return
+	if not enemy.killed_by_status.is_connected(_on_enemy_killed_by_status):
+		enemy.killed_by_status.connect(_on_enemy_killed_by_status)
 	for element: BehaviorTile in attack.elements:
-		enemy.apply_element(element)
+		enemy.apply_element(element, attack)
 	var killed := enemy.take_damage(attack.damage)
 	if attack.can_trigger():
 		_runner.notify_hit(attack.step, enemy)
 		if killed:
 			_runner.notify_kill(attack.step, enemy)
+
+
+## 지속 피해로 죽은 적: 마지막으로 지속 피해를 건 순차 행동의 '처치 시'를 발동합니다.
+## 조건으로 걸린 상태이상(source == null)이나 조건으로 발동된 공격이면 발동하지 않습니다 (A안).
+func _on_enemy_killed_by_status(enemy: Enemy, source: Attack) -> void:
+	if source and source.can_trigger():
+		_runner.notify_kill(source.step, enemy)
 
 
 func _on_action_performed(step: RuleCompiler.ActionStep, origin: Vector2) -> void:
