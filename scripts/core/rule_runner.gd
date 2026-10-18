@@ -18,7 +18,7 @@ signal status_applied(element: BehaviorTile, target: Node2D)
 signal current_slot_changed(slot_index: int)
 
 ## 행동 하나를 실행한 뒤 다음 행동까지 기다리는 시간(초)
-@export var base_cooldown: float = 3.0
+@export var base_cooldown: float = 1.5
 ## 웨이브 시작 시 첫 행동을 바로 실행할지 (false면 쿨다운 후 실행)
 @export var fire_immediately_on_start: bool = true
 

@@ -7,6 +7,9 @@ extends Node2D
 ## 테스트용: 판 시작 시 지급할 코인
 @export var debug_start_coins: int = 0
 
+## 웨이브 클리어 후 상점이 열리기까지의 시간(초). 이 동안 떨어진 코인을 주울 수 있습니다.
+@export var shop_delay: float = 3.0
+
 var _shop: Shop
 
 @onready var _player: Player = $Player
@@ -49,8 +52,9 @@ func _ready() -> void:
 
 
 func _start_wave() -> void:
+	# 체력은 웨이브 사이에 유지됩니다 (회복 수단은 추후 추가).
 	get_tree().paused = false
-	_player.heal_full()
+	_hud.hide_wave_clear()
 	_hud.set_wave(RunState.wave)
 	_reload_rule()
 	_runner.start()
@@ -69,7 +73,11 @@ func _on_start_tile_chosen(tile: BehaviorTile) -> void:
 
 func _on_wave_cleared() -> void:
 	_runner.stop()
-	_clear_field()
+	_hud.show_wave_clear(shop_delay)
+	await get_tree().create_timer(shop_delay, false).timeout
+	if _player.health <= 0.0:
+		return
+	_clear_attacks()
 	get_tree().paused = true
 	_shop_screen.open(_shop, RunState.wave)
 
@@ -79,11 +87,8 @@ func _on_next_wave() -> void:
 	_start_wave()
 
 
-## 웨이브 종료 시 남은 화폐는 자동으로 획득하고, 투사체와 효과는 지웁니다.
-func _clear_field() -> void:
-	for coin in _pickups.get_children():
-		if coin is Coin:
-			coin.collect()
+## 상점에 들어갈 때 남은 투사체와 효과를 지웁니다. 줍지 못한 코인은 땅에 그대로 남습니다.
+func _clear_attacks() -> void:
 	for node in _combat.get_children():
 		node.queue_free()
 

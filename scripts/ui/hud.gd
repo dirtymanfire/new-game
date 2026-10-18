@@ -8,11 +8,31 @@ extends CanvasLayer
 @onready var _warning_label: Label = %WarningLabel
 @onready var _coin_label: Label = %CoinLabel
 @onready var _kill_label: Label = %KillLabel
+@onready var _wave_clear_label: Label = %WaveClearLabel
+
+var _clear_time_left := 0.0
 
 
 func _ready() -> void:
 	RunState.coins_changed.connect(_on_coins_changed)
 	_on_coins_changed(RunState.coins)
+	_wave_clear_label.hide()
+
+
+func _process(delta: float) -> void:
+	if not _wave_clear_label.visible:
+		return
+	_clear_time_left = maxf(_clear_time_left - delta, 0.0)
+	_wave_clear_label.text = "웨이브 클리어!  상점까지 %d" % ceili(_clear_time_left)
+
+
+func show_wave_clear(seconds: float) -> void:
+	_clear_time_left = seconds
+	_wave_clear_label.show()
+
+
+func hide_wave_clear() -> void:
+	_wave_clear_label.hide()
 
 
 func bind_player(player: Player) -> void:

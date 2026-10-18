@@ -150,10 +150,10 @@ func _test_runner() -> void:
 	runner.action_performed.connect(func(step, _o): order.append(step.slot_index))
 	runner.start()
 	runner._process(0.0) # 시작 즉시 첫 행동
-	runner._process(1.5)
-	runner._process(1.5) # 3초 후 다음 행동
-	runner._process(3.0) # 다시 처음으로
-	_check(order == [0, 2, 0], "순차 실행 + 3초 쿨다운 + 반복 (결과: %s)" % [order])
+	runner._process(0.75)
+	runner._process(0.75) # 1.5초 후 다음 행동
+	runner._process(1.5) # 다시 처음으로
+	_check(order == [0, 2, 0], "순차 실행 + 1.5초 쿨다운 + 반복 (결과: %s)" % [order])
 
 	rule = BehaviorRule.new()
 	for i in 5:
@@ -181,8 +181,14 @@ func _make_enemy(pos: Vector2) -> Enemy:
 func _test_combat() -> void:
 	var step := _compile("fire fire split shoot pierce").actions[0]
 	var attack := Attack.from_step(step, 0)
-	_check(attack.elements[_t("fire")] == 2, "같은 속성 2개는 2중첩")
+	_check(attack.elements.size() == 1, "같은 속성 2개여도 한 번만 적용")
 	_check(attack.shot_count == 3 and attack.pierce == 2, "분열 3발, 관통 2")
+	var doubled := Attack.from_step(_compile("split split shoot pierce pierce").actions[0], 0)
+	_check(doubled.shot_count == 3 and doubled.pierce == 2, "같은 변형 2개여도 합산 안 됨")
+
+	var poison := _t("poison")
+	var fire := _t("fire")
+	_check(poison.potency * 2 < fire.potency and poison.potency * 3 > fire.potency, "독은 3중첩부터 화염보다 강함")
 
 	var enemy := _make_enemy(Vector2(5000, 0))
 	var frost := _t("frost")

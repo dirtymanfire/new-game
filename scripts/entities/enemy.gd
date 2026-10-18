@@ -67,23 +67,24 @@ func take_damage(amount: float) -> bool:
 	return false
 
 
-## 속성 상태이상을 겁니다. stack은 같은 속성 타일이 겹친 개수입니다.
-func apply_element(element: BehaviorTile, stack: int = 1) -> void:
+## 속성 상태이상을 겁니다.
+func apply_element(element: BehaviorTile) -> void:
 	if is_dead:
 		return
 	match element.id:
 		&"fire":
-			# 다시 걸면 지속 시간 갱신, 더 센 화염이 우선
-			_burn_dps = maxf(_burn_dps, element.potency * stack)
+			# 다시 걸면 지속 시간만 갱신 (중첩 없음)
+			_burn_dps = element.potency
 			_burn_time = element.duration
 		&"poison":
 			_poison_dps_per_stack = element.potency
-			_poison_stacks = mini(_poison_stacks + stack, element.count)
+			# 걸 때마다 1중첩씩 쌓이고, 지속 시간이 갱신됩니다.
+			_poison_stacks = mini(_poison_stacks + 1, element.count)
 			_poison_time = element.duration
 		&"frost":
 			if _frozen_time > 0.0:
 				return
-			_slow += element.potency * stack
+			_slow += element.potency
 			_slow_time = element.duration
 			if _slow >= 1.0:
 				_slow = 0.0

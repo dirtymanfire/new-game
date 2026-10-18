@@ -41,7 +41,7 @@ func hit(attack: Attack, enemy: Enemy) -> void:
 	if enemy.is_dead:
 		return
 	for element: BehaviorTile in attack.elements:
-		enemy.apply_element(element, attack.elements[element])
+		enemy.apply_element(element)
 	var killed := enemy.take_damage(attack.damage)
 	if attack.can_trigger():
 		_runner.notify_hit(attack.step, enemy)

@@ -34,12 +34,6 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 
-func heal_full() -> void:
-	health = max_health
-	_invincible_left = 0.0
-	health_changed.emit(health, max_health)
-
-
 func take_damage(amount: float) -> void:
 	if health <= 0.0 or _invincible_left > 0.0:
 		return
