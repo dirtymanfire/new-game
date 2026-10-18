@@ -31,6 +31,8 @@ const KIND_COLORS := {
 ## 비워 두면 종류별 임시 색상으로 표시됩니다.
 @export var icon: Texture2D
 @export_multiline var description: String = ""
+## 상점 구매 가격 (임시값). 판매 가격은 절반(내림)입니다.
+@export var price: int = 5
 
 @export_group("배치 규칙 (변형 전용)")
 ## 행동 뒤에 놓아도 되는지. 끄면 행동 앞에만 놓을 수 있습니다 (예: 분열).
@@ -57,6 +59,10 @@ const KIND_COLORS := {
 @export var count: int = 0
 ## 추가 지속 시간 초 (빙결: 완전 정지 시간)
 @export var extra_duration: float = 0.0
+
+
+func get_sell_price() -> int:
+	return price / 2
 
 
 func get_kind_name() -> String:

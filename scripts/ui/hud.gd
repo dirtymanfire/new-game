@@ -6,6 +6,13 @@ extends CanvasLayer
 @onready var _wave_label: Label = %WaveLabel
 @onready var _rule_bar: HBoxContainer = %RuleBar
 @onready var _warning_label: Label = %WarningLabel
+@onready var _coin_label: Label = %CoinLabel
+@onready var _kill_label: Label = %KillLabel
+
+
+func _ready() -> void:
+	RunState.coins_changed.connect(_on_coins_changed)
+	_on_coins_changed(RunState.coins)
 
 
 func bind_player(player: Player) -> void:
@@ -31,6 +38,14 @@ func show_warnings(warnings: Dictionary) -> void:
 
 func set_wave(wave: int) -> void:
 	_wave_label.text = "웨이브 %d" % wave
+
+
+func set_kill_progress(kills: int, target: int) -> void:
+	_kill_label.text = "처치 %d / %d" % [kills, target]
+
+
+func _on_coins_changed(coins: int) -> void:
+	_coin_label.text = "코인 %d" % coins
 
 
 func _on_health_changed(current: float, maximum: float) -> void:

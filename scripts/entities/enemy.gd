@@ -13,7 +13,7 @@ const STATUS_COLORS := {
 }
 
 ## 일반적인 뱀서라이크 기준 임시값
-@export var max_health: float = 30.0
+@export var max_health: float = 15.0
 @export var move_speed: float = 120.0
 @export var contact_damage: float = 10.0
 @export var radius: float = 16.0

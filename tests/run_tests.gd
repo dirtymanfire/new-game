@@ -17,6 +17,8 @@ func _run() -> void:
 	_test_compiler()
 	_test_runner()
 	_test_combat()
+	_test_shop()
+	await _test_wave()
 	print("테스트 %s" % ("통과" if _failures == 0 else "실패 %d건" % _failures))
 	quit(_failures)
 
@@ -210,18 +212,84 @@ func _test_combat() -> void:
 	runner.triggered_action_performed.connect(func(_s, _o, _t2): triggered[0] += 1)
 	combat.hit(Attack.from_step(runner.compiled.actions[0], 0), a)
 	_check(triggered[0] == 1, "적중 시 폭발 1회만 (연쇄 없음): %d" % triggered[0])
-	_check(b.health == b.max_health - _t("explosion").damage, "폭발이 주변 적에게 피해")
+	_check(b.is_dead or b.health == b.max_health - _t("explosion").damage, "폭발이 주변 적에게 피해")
 
 	# 적중 시 분열: 맞은 적에서 파편 생성
 	rule.set_tile(2, _t("split"))
 	runner.load_rule(rule)
 	var before := combat.get_child_count()
-	combat.hit(Attack.from_step(runner.compiled.actions[0], 0), b)
+	var fresh := _make_enemy(Vector2(0, 500))
+	combat.hit(Attack.from_step(runner.compiled.actions[0], 0), fresh)
 	var fragments := 0
 	for c in combat.get_children().slice(before):
 		if c is Projectile:
 			fragments += 1
 	_check(fragments == _t("split").count, "적중 시 분열 파편 %d개" % fragments)
-	for n in [a, b, player, combat]:
+	for n in [a, b, fresh, player, combat]:
 		if is_instance_valid(n):
 			n.queue_free()
+
+
+func _test_shop() -> void:
+	var state = root.get_node("RunState")
+	state.reset()
+	var shoot := _t("shoot")
+	var pool: Array[BehaviorTile] = [shoot]
+	var shop := Shop.new(state, pool)
+	shop.open()
+	_check(shop.offers.size() == Shop.OFFER_COUNT, "진열 4개")
+	_check(shop.buy(0) == "화폐가 부족합니다.", "돈 없으면 구매 불가")
+	state.add_coins(100)
+	_check(shop.buy(0) == "" and state.coins == 100 - shoot.price, "구매 시 차감")
+	_check(state.inventory == [shoot] and shop.offers[0] == null, "구매한 타일은 보관함으로")
+	_check(shop.buy(0) == "이미 구매했습니다.", "같은 칸 재구매 불가")
+
+	_check(shop.reroll() == "" and state.coins == 100 - shoot.price - 2 and shop.reroll_cost == 3, "새로고침 비용 2, 이후 3")
+
+	shop.place(0, 2)
+	_check(state.rule.get_tile(2) == shoot and state.inventory.is_empty(), "보관함 → 슬롯")
+	state.add_to_inventory(_t("fire"))
+	shop.place(0, 2)
+	_check(state.rule.get_tile(2) == _t("fire") and state.inventory == [shoot], "슬롯에 있던 타일은 보관함으로")
+	shop.swap_slots(2, 0)
+	_check(state.rule.get_tile(0) == _t("fire") and state.rule.is_slot_empty(2), "슬롯 순서 변경")
+	shop.unplace(0)
+	_check(state.rule.is_slot_empty(0) and state.inventory.size() == 2, "슬롯 → 보관함")
+	var coins_before: int = state.coins
+	shop.sell_from_inventory(0)
+	_check(state.coins == coins_before + shoot.get_sell_price(), "판매는 절반 가격")
+
+	for i in Shop.OFFER_COUNT:
+		state.add_to_inventory(shoot)
+	while not state.is_inventory_full():
+		state.add_to_inventory(shoot)
+	shop.open()
+	_check(shop.buy(0) == "보관함이 가득 찼습니다.", "보관함 가득 차면 구매 불가")
+	state.reset()
+
+
+func _test_wave() -> void:
+	var player := (load("res://scenes/player.tscn") as PackedScene).instantiate() as Player
+	root.add_child(player)
+	var enemies := Node2D.new()
+	var pickups := Node2D.new()
+	root.add_child(enemies)
+	root.add_child(pickups)
+	var director := WaveDirector.new()
+	root.add_child(director)
+	director.setup(player, enemies, pickups)
+	var cleared := [false]
+	director.wave_cleared.connect(func(): cleared[0] = true)
+	director.start_wave(2)
+	_check(director.kill_target == 15, "2웨이브 목표 15")
+	for i in director.kill_target:
+		director._spawn_enemy()
+	_check(enemies.get_child_count() == 15, "15마리 생성")
+	_check(is_equal_approx((enemies.get_child(0) as Enemy).max_health, 15.0 * 1.15), "2웨이브 체력 15% 증가")
+	for e: Enemy in enemies.get_children():
+		e.take_damage(9999)
+	await process_frame
+	_check(cleared[0], "모두 처치하면 웨이브 종료")
+	_check(pickups.get_child_count() == 15, "처치마다 화폐 드롭")
+	for n in [player, enemies, pickups, director]:
+		n.queue_free()

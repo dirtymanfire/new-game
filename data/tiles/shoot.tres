@@ -7,6 +7,7 @@ script = ExtResource("1_tile")
 id = &"shoot"
 display_name = "사격"
 kind = 0
+price = 6
 description = "가장 가까운 적에게 투사체를 발사합니다."
 damage = 15.0
 speed = 700.0

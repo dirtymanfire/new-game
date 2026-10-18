@@ -7,6 +7,7 @@ script = ExtResource("1_tile")
 id = &"swing"
 display_name = "휘두르기"
 kind = 0
+price = 6
 description = "이동 방향으로 부채꼴 범위를 휘두릅니다."
 damage = 20.0
 radius = 150.0

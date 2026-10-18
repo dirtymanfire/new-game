@@ -7,6 +7,7 @@ script = ExtResource("1_tile")
 id = &"split"
 display_name = "분열"
 kind = 2
+price = 5
 description = "행동 앞: 여러 발을 동시에 발사합니다. 적중 시 뒤: 맞은 적에서 파편으로 갈라집니다."
 allow_after_action = false
 usable_after_condition = true

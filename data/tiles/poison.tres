@@ -7,6 +7,7 @@ script = ExtResource("1_tile")
 id = &"poison"
 display_name = "독"
 kind = 1
+price = 4
 description = "중첩되는 지속 피해를 줍니다."
 duration = 5.0
 potency = 3.0

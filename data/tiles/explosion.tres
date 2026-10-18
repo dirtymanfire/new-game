@@ -7,6 +7,7 @@ script = ExtResource("1_tile")
 id = &"explosion"
 display_name = "폭발"
 kind = 0
+price = 6
 description = "주변에 폭발을 일으킵니다. 순차 실행이면 플레이어, 조건 발동이면 적 중심입니다."
 damage = 25.0
 radius = 120.0

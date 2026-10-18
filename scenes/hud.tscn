@@ -34,13 +34,26 @@ layout_mode = 0
 offset_left = 32.0
 offset_top = 32.0
 offset_right = 432.0
-offset_bottom = 140.0
+offset_bottom = 210.0
 
 [node name="WaveLabel" type="Label" parent="Root/Health"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "웨이브"
+
+[node name="KillLabel" type="Label" parent="Root/Health"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "처치"
+
+[node name="CoinLabel" type="Label" parent="Root/Health"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.25, 1)
+theme_override_font_sizes/font_size = 22
+text = "코인"
 
 [node name="HealthLabel" type="Label" parent="Root/Health"]
 unique_name_in_owner = true
