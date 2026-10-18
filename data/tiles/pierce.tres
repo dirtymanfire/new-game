@@ -8,5 +8,6 @@ id = &"pierce"
 display_name = "관통"
 kind = 2
 price = 5
-description = "투사체가 적을 추가로 관통합니다."
+description = "투사체가 적을 추가로 관통합니다. 행동 앞에 놓아야 합니다."
+allow_after_action = false
 count = 2

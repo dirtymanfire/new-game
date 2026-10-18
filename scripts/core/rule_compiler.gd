@@ -5,12 +5,14 @@ extends RefCounted
 ## 해석 규칙 (확정):
 ## - 속성은 행동 바로 앞에 붙습니다. 행동 앞에 연속된 속성은 모두 적용됩니다.
 ## - 변형은 행동 앞 또는 뒤에 붙습니다. 연속된 변형은 모두 적용됩니다.
-##   단, allow_after_action이 꺼진 변형(분열)은 행동 뒤에 오면 경고합니다.
+##   단, allow_after_action이 꺼진 변형(분열·관통)은 항상 다음 행동 앞에 붙고, 다음 행동이 없으면 경고합니다.
 ## - 조건은 바로 앞 행동에만 적용되고, 뒤의 타일 trigger_reach개를 발동합니다.
 ##   · 뒤가 행동이면: 그 행동은 조건 전용이 되어 순차 실행에서 빠집니다. 쿨다운 없이 발동합니다.
 ##   · 뒤가 속성이면: 적중/처치한 적에게 그 상태이상을 겁니다.
 ##   · 뒤가 usable_after_condition이 켜진 변형(분열)이면: 맞은 적 위치에서 그 효과가 발동합니다.
 ## - 조건으로 발동된 행동은 max_chain_depth를 넘어 다시 조건을 발동하지 않습니다 (무한 연쇄 방지 A안).
+## - 조건은 연달아 놓을 수 없습니다: 조건 뒤에 순차 행동이 다시 나오기 전에 또 조건이 오면 금지(forbidden).
+##   (무한 연쇄 업그레이드로 조건 전용 행동에 조건을 다는 경우는 예외)
 ## - 잘못된 배치는 허용하되 경고하고, 해당 타일은 효과 없이 무시합니다.
 ## - 빈 슬롯은 없는 것처럼 건너뜁니다.
 
@@ -60,6 +62,13 @@ class CompiledRule:
 	var actions: Array[ActionStep] = []
 	## 슬롯 번호 -> 경고 메시지. 슬롯과 무관한 경고는 -1
 	var warnings: Dictionary = {}
+	## 경고를 넘어 아예 놓을 수 없는 배치의 슬롯 번호 (상점에서 배치를 막습니다)
+	var forbidden: Array[int] = []
+
+	func forbid(slot_index: int, message: String) -> void:
+		add_warning(slot_index, message)
+		if not forbidden.has(slot_index):
+			forbidden.append(slot_index)
 
 	func add_warning(slot_index: int, message: String) -> void:
 		if not warnings.has(slot_index):
@@ -84,6 +93,8 @@ static func compile(
 	var attach_target: ActionStep = null
 	## attach_target 뒤에 조건이 이미 나와서 변형이 더 붙을 수 없는 상태
 	var modifiers_closed := false
+	## 마지막 순차 행동 뒤에 이미 조건이 나왔는지
+	var after_condition := false
 
 	var t := 0
 	while t < tokens.size():
@@ -109,22 +120,30 @@ static func compile(
 				result.actions.append(step)
 				attach_target = step
 				modifiers_closed = false
+				after_condition = false
 
 			BehaviorTile.Kind.MODIFIER:
-				if attach_target and not modifiers_closed and pending_prefix.is_empty():
-					if tile.allow_after_action:
-						attach_target.modifiers.append(tile)
-					else:
-						result.add_warning(index, "%s은(는) 행동 앞에 놓아야 합니다." % tile.display_name)
+				if attach_target and not modifiers_closed and pending_prefix.is_empty() and tile.allow_after_action:
+					attach_target.modifiers.append(tile)
 				else:
+					# 다음 행동 앞에 붙습니다. 다음 행동이 없으면 이유와 함께 경고합니다.
 					var reason := "변형 앞뒤에 행동이 없습니다."
-					if modifiers_closed and pending_prefix.is_empty():
+					if not tile.allow_after_action:
+						reason = "%s은(는) 행동 앞에 놓아야 합니다." % tile.display_name
+					elif modifiers_closed and pending_prefix.is_empty():
 						reason = "조건으로 발동되는 행동에는 뒤의 변형이 적용되지 않습니다."
 					pending_prefix.append({ "index": index, "tile": tile, "reason": reason })
 					attach_target = null
 
 			BehaviorTile.Kind.CONDITION:
 				_orphan_prefix(result, pending_prefix)
+				var chain_allowed := attach_target != null and attach_target.depth > 0 \
+						and (max_chain_depth < 0 or attach_target.depth < max_chain_depth)
+				if after_condition and not chain_allowed:
+					result.forbid(index, "조건은 연달아 놓을 수 없습니다.")
+					attach_target = null
+					continue
+				after_condition = true
 				if attach_target == null:
 					result.add_warning(index, "조건 앞에 행동이 없습니다.")
 					continue
@@ -167,7 +186,7 @@ static func compile(
 							else:
 								result.add_warning(p_index, "%s은(는) 조건 뒤에 올 수 없습니다." % p_tile.display_name)
 						BehaviorTile.Kind.CONDITION:
-							result.add_warning(p_index, "조건 뒤에 조건이 올 수 없습니다.")
+							result.forbid(p_index, "조건은 연달아 놓을 수 없습니다.")
 
 				# 조건으로 발동된 행동 뒤의 타일은 그 행동에 붙지 않고 경고 대상이 됩니다.
 				attach_target = last_payload_action

@@ -75,11 +75,11 @@ func _test_player_death() -> void:
 
 func _test_compiler() -> void:
 	# 속성은 앞, 변형은 뒤, 적중 시 뒤의 폭발은 조건 전용
-	var r := _compile("fire shoot pierce on_hit explosion")
+	var r := _compile("fire pierce shoot on_hit explosion")
 	_check(r.warnings.is_empty(), "정상 배치는 경고 없음")
 	_check(r.actions.size() == 1, "조건 전용 폭발은 순차 실행에서 빠짐")
 	var shoot := r.actions[0]
-	_check(shoot.elements == [_t("fire")] and shoot.modifiers == [_t("pierce")], "화염 앞, 관통 뒤")
+	_check(shoot.elements == [_t("fire")] and shoot.modifiers == [_t("pierce")], "화염·관통 앞")
 	_check(shoot.triggers.size() == 1 and shoot.triggers[0].actions[0].tile == _t("explosion"), "적중 시 폭발")
 	_check(shoot.triggers[0].actions[0].depth == 1, "조건 발동 행동은 깊이 1")
 
@@ -107,6 +107,18 @@ func _test_compiler() -> void:
 	r = _compile("shoot on_hit pierce")
 	_check(r.warnings.has(2), "적중 시 관통은 경고")
 
+	r = _compile("shoot pierce")
+	_check(r.warnings.has(1) and r.actions[0].modifiers.is_empty(), "관통을 행동 뒤에 두면 경고")
+
+	r = _compile("shoot pierce swing")
+	_check(r.warnings.is_empty() and r.actions[1].modifiers == [_t("pierce")] and r.actions[0].modifiers.is_empty(), "관통은 앞(휘두르기)에 붙음")
+
+	r = _compile("shoot on_hit fire on_kill explosion")
+	_check(r.forbidden == [3], "조건 연달아 금지 (사이에 속성)")
+
+	r = _compile("shoot on_hit fire swing on_kill")
+	_check(not r.forbidden.has(4), "사이에 순차 행동이 있으면 연달아가 아님")
+
 	r = _compile("shoot on_hit")
 	_check(r.warnings.has(1), "조건이 맨 끝")
 
@@ -124,13 +136,13 @@ func _test_compiler() -> void:
 	_check(r.warnings.is_empty() and r.actions[0].triggers[0].statuses == [_t("fire")], "적중 시 화염 = 상태이상")
 
 	r = _compile("shoot on_hit explosion on_kill fire")
-	_check(r.warnings.has(3), "A안: 조건 발동 행동은 다시 조건 발동 불가")
+	_check(r.forbidden.has(3), "A안: 조건 발동 행동에 조건 = 연달아 금지")
 
 	r = _compile("shoot on_hit explosion on_kill fire", 1, -1)
 	_check(not r.warnings.has(3), "무한 연쇄 업그레이드 시 허용")
 
 	r = _compile("shoot on_hit on_kill explosion")
-	_check(r.warnings.has(2), "조건 뒤 조건은 경고")
+	_check(r.forbidden.has(2), "조건 바로 뒤 조건 금지")
 
 	r = _compile("_ _ _ _ _")
 	_check(r.warnings.has(-1), "행동 없음 경고")
@@ -179,11 +191,11 @@ func _make_enemy(pos: Vector2) -> Enemy:
 
 
 func _test_combat() -> void:
-	var step := _compile("fire fire split shoot pierce").actions[0]
+	var step := _compile("fire fire split pierce shoot").actions[0]
 	var attack := Attack.from_step(step, 0)
 	_check(attack.elements.size() == 1, "같은 속성 2개여도 한 번만 적용")
 	_check(attack.shot_count == 3 and attack.pierce == 2, "분열 3발, 관통 2")
-	var doubled := Attack.from_step(_compile("split split shoot pierce pierce").actions[0], 0)
+	var doubled := Attack.from_step(_compile("split split pierce pierce shoot").actions[0], 0)
 	_check(doubled.shot_count == 3 and doubled.pierce == 2, "같은 변형 2개여도 합산 안 됨")
 
 	var poison := _t("poison")
@@ -282,6 +294,24 @@ func _test_shop() -> void:
 	state.add_to_inventory(_t("fire"))
 	shop.place(0, 2)
 	_check(state.rule.get_tile(2) == _t("fire") and state.inventory == [shoot], "슬롯에 있던 타일은 보관함으로")
+	# 조건 연달아 배치는 상점에서 막힘
+	var saved: Array[BehaviorTile] = state.rule.get_slots()
+	var saved_inv: Array[BehaviorTile] = state.inventory.duplicate()
+	var test_rule: Array[BehaviorTile] = [shoot, _t("on_hit"), _t("fire"), null, null]
+	for i in 5:
+		state.rule.set_tile(i, test_rule[i])
+	state.inventory.clear()
+	state.add_to_inventory(_t("on_kill"))
+	_check(shop.place(0, 3) == "조건은 연달아 놓을 수 없습니다.", "조건 연달아 배치 막힘")
+	_check(state.rule.is_slot_empty(3) and state.inventory.size() == 1, "막히면 아무것도 바뀌지 않음")
+	state.rule.set_tile(3, _t("swing"))
+	_check(shop.place(0, 4) == "", "사이에 순차 행동이 있으면 배치 가능")
+	_check(shop.swap_slots(3, 4) == "조건은 연달아 놓을 수 없습니다.", "조건 연달아 되는 교환 막힘")
+	_check(shop.unplace(3) == "조건은 연달아 놓을 수 없습니다.", "사이 행동 회수로 연달아 되면 막힘")
+	_check(shop.sell_from_slot(3) == "조건은 연달아 놓을 수 없습니다.", "사이 행동 판매로 연달아 되면 막힘")
+	for i in 5:
+		state.rule.set_tile(i, saved[i])
+	state.inventory.assign(saved_inv)
 	shop.swap_slots(2, 0)
 	_check(state.rule.get_tile(0) == _t("fire") and state.rule.is_slot_empty(2), "슬롯 순서 변경")
 	shop.unplace(0)

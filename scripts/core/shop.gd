@@ -59,6 +59,9 @@ func sell_from_slot(slot_index: int) -> String:
 	var tile: BehaviorTile = _state.rule.get_tile(slot_index)
 	if tile == null:
 		return ""
+	var reason := _forbidden_reason_without(slot_index)
+	if reason != "":
+		return reason
 	_state.rule.clear_slot(slot_index)
 	_state.add_coins(tile.get_sell_price())
 	return ""
@@ -66,6 +69,11 @@ func sell_from_slot(slot_index: int) -> String:
 
 ## 보관함 타일을 슬롯에 놓습니다. 슬롯에 타일이 있으면 보관함으로 돌아갑니다.
 func place(inventory_index: int, slot_index: int) -> String:
+	var slots: Array[BehaviorTile] = _state.rule.get_slots()
+	slots[slot_index] = _state.inventory[inventory_index]
+	var reason := _forbidden_reason(slots)
+	if reason != "":
+		return reason
 	var tile: BehaviorTile = _state.take_from_inventory(inventory_index)
 	var previous: BehaviorTile = _state.rule.get_tile(slot_index)
 	_state.rule.set_tile(slot_index, tile)
@@ -81,13 +89,39 @@ func unplace(slot_index: int) -> String:
 		return ""
 	if _state.is_inventory_full():
 		return "보관함이 가득 찼습니다."
+	var reason := _forbidden_reason_without(slot_index)
+	if reason != "":
+		return reason
 	_state.rule.clear_slot(slot_index)
 	_state.add_to_inventory(tile)
 	return ""
 
 
 func swap_slots(a: int, b: int) -> String:
+	var slots: Array[BehaviorTile] = _state.rule.get_slots()
+	var temp := slots[a]
+	slots[a] = slots[b]
+	slots[b] = temp
+	var reason := _forbidden_reason(slots)
+	if reason != "":
+		return reason
 	_state.rule.swap(a, b)
+	return ""
+
+
+func _forbidden_reason_without(slot_index: int) -> String:
+	var slots: Array[BehaviorTile] = _state.rule.get_slots()
+	slots[slot_index] = null
+	return _forbidden_reason(slots)
+
+
+## 이 배치가 금지된 배치(예: 조건 연달아)면 이유를, 아니면 ""를 돌려줍니다.
+## 이미 금지 상태인 수칙을 고치는 중이면, 금지 칸이 늘어날 때만 막습니다.
+func _forbidden_reason(slots: Array[BehaviorTile]) -> String:
+	var after := RuleCompiler.compile(slots)
+	var before := RuleCompiler.compile(_state.rule.get_slots())
+	if after.forbidden.size() > before.forbidden.size():
+		return after.warnings[after.forbidden[0]]
 	return ""
 
 
