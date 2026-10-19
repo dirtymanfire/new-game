@@ -3,7 +3,11 @@ extends RefCounted
 ## 행동 수칙 5슬롯을 왼쪽 → 오른쪽으로 해석해 실행 가능한 형태(CompiledRule)로 바꿉니다.
 ##
 ## 해석 규칙 (확정):
-## - 속성은 행동 바로 앞에 붙습니다. 행동 앞에 연속된 속성은 모두 적용됩니다.
+## - 속성은 놓인 위치에 따라 다르게 동작합니다.
+##   · 행동 바로 앞(`화염 사격`): 그 행동이 맞힌 적에게 상태이상을 겁니다. 연속된 속성은 모두 적용됩니다.
+##   · 행동 바로 뒤(`사격 화염`): 그 행동이 지나간 자리에 속성 장판을 깝니다.
+##     행동 사이(`사격 화염 휘두르기`)에 있으면 왼쪽부터 해석해 앞 행동(사격)의 장판이 됩니다.
+##   · 붙을 행동이 없으면(`화염` 단독) 속성 자체가 공격 행동이 됩니다 (화염구, 얼음창, 독구름).
 ## - 변형은 행동 앞 또는 뒤에 붙습니다. 연속된 변형은 모두 적용됩니다.
 ##   단, allow_after_action이 꺼진 변형(분열·관통)은 항상 다음 행동 앞에 붙고, 다음 행동이 없으면 경고합니다.
 ## - 조건은 바로 앞 행동에만 적용되고, 뒤의 타일 trigger_reach개를 발동합니다.
@@ -29,7 +33,10 @@ class ActionStep:
 	var slot_index: int
 	## 0: 순차 실행되는 행동, 1 이상: 조건으로 발동된 행동
 	var depth: int = 0
+	## 행동 앞 속성: 맞힌 적에게 상태이상
 	var elements: Array[BehaviorTile] = []
+	## 행동 뒤 속성: 지나간 자리에 장판
+	var after_elements: Array[BehaviorTile] = []
 	var modifiers: Array[BehaviorTile] = []
 	var triggers: Array[TriggerStep] = []
 
@@ -38,6 +45,8 @@ class ActionStep:
 		for e in elements:
 			parts.append(e.display_name)
 		parts.append(tile.display_name)
+		for e in after_elements:
+			parts.append(e.display_name)
 		for m in modifiers:
 			parts.append(m.display_name)
 		return " ".join(parts)
@@ -104,8 +113,11 @@ static func compile(
 
 		match tile.kind:
 			BehaviorTile.Kind.ELEMENT:
-				pending_prefix.append({ "index": index, "tile": tile, "reason": "속성 뒤에 행동이 없습니다." })
-				attach_target = null
+				if attach_target and attach_target.depth == 0 and not modifiers_closed and pending_prefix.is_empty():
+					attach_target.after_elements.append(tile)
+				else:
+					pending_prefix.append({ "index": index, "tile": tile, "reason": "" })
+					attach_target = null
 
 			BehaviorTile.Kind.ACTION:
 				var step := ActionStep.new()
@@ -136,7 +148,11 @@ static func compile(
 					attach_target = null
 
 			BehaviorTile.Kind.CONDITION:
-				_orphan_prefix(result, pending_prefix)
+				var standalone := _flush_prefix(result, pending_prefix)
+				if standalone:
+					attach_target = standalone
+					modifiers_closed = false
+					after_condition = false
 				var chain_allowed := attach_target != null and attach_target.depth > 0 \
 						and (max_chain_depth < 0 or attach_target.depth < max_chain_depth)
 				if after_condition and not chain_allowed:
@@ -192,13 +208,34 @@ static func compile(
 				attach_target = last_payload_action
 				modifiers_closed = true
 
-	_orphan_prefix(result, pending_prefix)
+	_flush_prefix(result, pending_prefix)
 	if result.actions.is_empty():
 		result.add_warning(-1, "행동 수칙에 순차 실행할 행동이 없습니다.")
 	return result
 
 
-static func _orphan_prefix(result: CompiledRule, pending_prefix: Array[Dictionary]) -> void:
+## 행동에 붙지 못한 앞 타일을 정리합니다.
+## 속성은 그 자체로 공격 행동(화염구 등)이 되고, 변형은 그 속성 행동에 붙습니다.
+## 어디에도 붙지 못한 변형은 경고합니다. 마지막으로 만든 속성 행동을 돌려줍니다.
+static func _flush_prefix(result: CompiledRule, pending_prefix: Array[Dictionary]) -> ActionStep:
+	var last: ActionStep = null
+	var waiting: Array[Dictionary] = []
 	for p in pending_prefix:
-		result.add_warning(p.index, p.reason)
+		var tile: BehaviorTile = p.tile
+		if tile.kind == BehaviorTile.Kind.ELEMENT:
+			var step := ActionStep.new()
+			step.tile = tile
+			step.slot_index = p.index
+			for w in waiting:
+				step.modifiers.append(w.tile)
+			waiting.clear()
+			result.actions.append(step)
+			last = step
+		elif last and tile.allow_after_action:
+			last.modifiers.append(tile)
+		else:
+			waiting.append(p)
+	for w in waiting:
+		result.add_warning(w.index, w.reason)
 	pending_prefix.clear()
+	return last

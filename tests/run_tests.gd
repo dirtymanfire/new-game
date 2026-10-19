@@ -87,7 +87,22 @@ func _test_compiler() -> void:
 	_check(r.actions[0].elements.size() == 2, "행동 앞 속성 두 개 모두 적용")
 
 	r = _compile("shoot fire")
-	_check(r.warnings.has(1) and r.actions[0].elements.is_empty(), "행동 뒤 속성은 경고")
+	_check(r.warnings.is_empty() and r.actions[0].after_elements == [_t("fire")], "행동 뒤 속성 = 장판")
+
+	r = _compile("shoot fire swing")
+	_check(r.actions.size() == 2 and r.actions[0].after_elements == [_t("fire")] and r.actions[1].elements.is_empty(), "사이 속성은 앞 행동의 장판")
+
+	r = _compile("fire")
+	_check(r.warnings.is_empty() and r.actions.size() == 1 and r.actions[0].tile == _t("fire"), "속성 단독 = 공격 행동")
+
+	r = _compile("frost poison")
+	_check(r.actions.size() == 2, "속성 단독 두 개 = 행동 두 개")
+
+	r = _compile("fire homing on_hit explosion")
+	_check(r.warnings.is_empty() and r.actions[0].modifiers == [_t("homing")] and r.actions[0].triggers.size() == 1, "속성 행동에도 변형·조건이 붙음")
+
+	r = _compile("shoot on_hit explosion fire")
+	_check(r.actions.size() == 2 and r.actions[1].tile == _t("fire"), "조건 발동 행동 뒤 속성은 단독 행동")
 
 	r = _compile("fire pierce shoot")
 	_check(r.warnings.is_empty() and r.actions[0].modifiers == [_t("pierce")], "변형은 행동 앞에도 놓을 수 있음")
@@ -197,6 +212,11 @@ func _test_combat() -> void:
 	_check(attack.shot_count == 3 and attack.pierce == 2, "분열 3발, 관통 2")
 	var doubled := Attack.from_step(_compile("split split pierce pierce shoot").actions[0], 0)
 	_check(doubled.shot_count == 3 and doubled.pierce == 2, "같은 변형 2개여도 합산 안 됨")
+
+	var ice := Attack.from_step(_compile("pierce frost").actions[0], 0)
+	_check(ice.pierce == _t("frost").pierce_count + _t("pierce").count and ice.elements.has(_t("frost")), "관통 얼음창 = 기본 관통 + 관통, 빙결 적용")
+	var trail := Attack.from_step(_compile("shoot fire fire").actions[0], 0)
+	_check(trail.trail_elements == [_t("fire")], "장판 속성 중복 없음")
 
 	var poison := _t("poison")
 	var fire := _t("fire")

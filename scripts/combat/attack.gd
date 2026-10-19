@@ -8,8 +8,10 @@ var tile: BehaviorTile
 ## 0이면 조건을 발동할 수 있는 순차 행동, 1 이상이면 조건으로 발동된 공격
 var depth: int
 var damage: float
-## 적용할 속성 타일 (중복 없음). 값은 쓰지 않습니다.
+## 맞힌 적에게 걸 속성 (중복 없음). 값은 쓰지 않습니다.
 var elements: Dictionary = {}
+## 지나간 자리에 깔 속성 장판 (중복 없음)
+var trail_elements: Array[BehaviorTile] = []
 var pierce := 0
 ## 동시에 나가는 발사 수 (분열을 행동 앞에 두었을 때)
 var shot_count := 1
@@ -23,8 +25,15 @@ static func from_step(action_step: RuleCompiler.ActionStep, attack_depth: int) -
 	attack.tile = action_step.tile
 	attack.depth = attack_depth
 	attack.damage = action_step.tile.damage
+	# 속성 단독 행동(화염구 등)은 자기 속성을 맞힌 적에게 겁니다.
+	if action_step.tile.kind == BehaviorTile.Kind.ELEMENT:
+		attack.elements[action_step.tile] = true
+		attack.pierce = action_step.tile.pierce_count
 	for element in action_step.elements:
 		attack.elements[element] = true
+	for element in action_step.after_elements:
+		if not attack.trail_elements.has(element):
+			attack.trail_elements.append(element)
 	var applied := {}
 	for modifier in action_step.modifiers:
 		if applied.has(modifier.id):
@@ -32,7 +41,7 @@ static func from_step(action_step: RuleCompiler.ActionStep, attack_depth: int) -
 		applied[modifier.id] = true
 		match modifier.id:
 			&"pierce":
-				attack.pierce = modifier.count
+				attack.pierce += modifier.count
 			&"split":
 				attack.shot_count = modifier.count
 				attack.spread_degrees = modifier.angle_degrees

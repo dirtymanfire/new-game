@@ -59,6 +59,16 @@ const KIND_COLORS := {
 @export var count: int = 0
 ## 추가 지속 시간 초 (빙결: 완전 정지 시간)
 @export var extra_duration: float = 0.0
+## 투사체 기본 관통 수 (얼음창)
+@export var pierce_count: int = 0
+## 범위 반경 px (화염구: 터지는 범위, 독구름: 구름 크기)
+@export var area_radius: float = 0.0
+
+@export_group("장판 (속성을 행동 뒤에 둘 때, 임시값)")
+## 장판 한 칸의 반경 px
+@export var field_radius: float = 0.0
+## 장판 유지 시간 초 (독구름도 이 시간만큼 유지)
+@export var field_duration: float = 0.0
 
 
 func get_sell_price() -> int:
